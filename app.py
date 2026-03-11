@@ -1,25 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return "Welcome to my Flask API!"
+
 @app.route('/student')
 def get_student():
-    # Get grade from query parameter (default = 0)
-    # Added a basic try-except to prevent crashing on non-numbers
-    try:
-        grade = int(request.args.get('grade', 0))
-    except ValueError:
-        return jsonify({"error": "Invalid grade provided. Please use a number."}), 400
-
-    # Determine pass or fail
-    remarks = "Pass" if grade >= 75 else "Fail"
-    
     return jsonify({
-        "name": "Juan",
-        "grade": grade,
-        "section": "Zechariah",
-        "remarks": remarks
+        "name": "Your Name",
+        "grade": 10,
+        "section": "Zechariah"
     })
 
 if __name__ == '__main__':
+    # This block allows you to run the app directly using 'python app.py'
     app.run(debug=True)
