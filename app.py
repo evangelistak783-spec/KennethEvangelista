@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 app = Flask(__name__)
 
-@app.route('/app.py')
+@app.route('/')
 def home():
 return "Welcome to my Flask API!"
 
@@ -12,4 +12,5 @@ return jsonify({
 "grade": 10,
 "section": "Zechariah"
 })
+
 
