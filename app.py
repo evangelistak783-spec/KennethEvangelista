@@ -1,29 +1,59 @@
 from flask import Flask, jsonify, request, render_template_string, redirect, url_for
 from database import get_db_connection, init_db
-from psycopg2.extras import RealDictCursor # Added for PostgreSQL dictionary support
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 
-# Initialize the PostgreSQL database when the app starts
 init_db()
 
 SECRET_API_KEY = "super-secret-key-123"
 
 # ==========================================
-# 2. HTML VIEWS & FRONT-END (Premium UI)
+# SHARED CSS / DESIGN SYSTEM
+# ==========================================
+
+SHARED_HEAD = """
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg: #F5F2ED;
+    --surface: #FDFCF9;
+    --surface-raised: #FFFFFF;
+    --ink: #1A1816;
+    --ink-2: #4A4744;
+    --ink-3: #9A9490;
+    --rule: #E2DDD6;
+    --rule-dark: #C8C0B4;
+    --accent: #2B5CE6;
+    --accent-light: #EEF2FD;
+    --pass-bg: #E8F5EE;
+    --pass-text: #1A6B3C;
+    --fail-bg: #FDECEA;
+    --fail-text: #C0392B;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 14px; }
+</style>
+"""
+
+# ==========================================
+# HTML VIEWS & FRONT-END
 # ==========================================
 
 @app.route('/')
 def home():
     return redirect(url_for('list_students'))
 
+
 @app.route('/students')
 def list_students():
     conn = get_db_connection()
     if not conn:
         return "Database Connection Error", 500
-        
-    # In PostgreSQL (psycopg2), we use RealDictCursor instead of dictionary=True
+
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute("SELECT * FROM students")
     students = cursor.fetchall()
@@ -39,128 +69,228 @@ def list_students():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Student API Dashboard</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <style> body { font-family: 'Inter', sans-serif; } </style>
-    </head>
-    <body class="bg-slate-50 text-slate-800 min-h-screen p-4 md:p-8">
-        <div class="max-w-6xl mx-auto">
-            <!-- Header -->
-            <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                        <span class="text-indigo-600">🎓</span> Student API Dashboard
-                    </h1>
-                    <p class="text-slate-500 mt-1 text-sm md:text-base">Manage student records, grades, and analytics seamlessly.</p>
-                </div>
-                <a href="/add_student_form" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-md hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                    Add New Student
-                </a>
-            </header>
+        <title>Student Registry</title>
+        """ + SHARED_HEAD + """
+        <style>
+        .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
 
-            <!-- Analytics Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Students</p>
-                        <h3 class="text-3xl font-extrabold text-slate-800">{{students|length}}</h3>
-                    </div>
-                    <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 text-xl">👥</div>
+        /* Sidebar */
+        aside { background: var(--ink); color: #E8E4DE; padding: 32px 0; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
+        .logo-block { padding: 0 24px 28px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .logo-sup { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 4px; }
+        .logo-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: #FDFCF9; line-height: 1.1; }
+        .logo-title em { font-style: italic; color: #A8B8F0; }
+        nav { padding: 20px 12px; flex: 1; }
+        .nav-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.28); padding: 0 12px; margin-bottom: 6px; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: rgba(255,255,255,0.5); font-size: 13px; text-decoration: none; transition: all 0.15s; }
+        .nav-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.9); }
+        .nav-item.active { background: rgba(255,255,255,0.1); color: #FDFCF9; font-weight: 500; }
+        .nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.65; }
+        .nav-item.active .nav-icon { opacity: 1; }
+        .nav-sep { margin-top: 18px; }
+        .sidebar-footer { padding: 14px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .version-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); }
+
+        /* Main */
+        main { padding: 40px 48px; overflow-y: auto; }
+        .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+        .page-header h1 { font-family: 'DM Serif Display', serif; font-size: 34px; color: var(--ink); line-height: 1.1; }
+        .page-header h1 em { font-style: italic; color: var(--accent); }
+        .page-sub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+
+        .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--ink); color: #FDFCF9; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+        .btn-primary:hover { background: #2d2927; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+
+        /* Stats */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .stat-card { background: var(--surface-raised); border: 1px solid var(--rule); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 14px 14px 0 0; background: var(--rule); }
+        .stat-card.c-blue::before { background: #2B5CE6; }
+        .stat-card.c-purple::before { background: #7C3AED; }
+        .stat-card.c-green::before { background: #16A34A; }
+        .stat-card.c-red::before { background: #DC2626; }
+        .stat-label { font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+        .stat-value { font-family: 'DM Serif Display', serif; font-size: 36px; line-height: 1; color: var(--ink); }
+        .stat-card.c-green .stat-value { color: #16A34A; }
+        .stat-card.c-red .stat-value { color: #DC2626; }
+
+        /* Table */
+        .table-card { background: var(--surface-raised); border: 1px solid var(--rule); border-radius: 16px; overflow: hidden; }
+        .table-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; border-bottom: 1px solid var(--rule); }
+        .table-title { font-family: 'DM Serif Display', serif; font-size: 18px; }
+        .record-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); background: var(--bg); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--rule); }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); background: #FAFAF8; border-bottom: 1px solid var(--rule); }
+        thead th:first-child { padding-left: 28px; }
+        thead th:last-child { padding-right: 28px; text-align: right; }
+        tbody tr { border-bottom: 1px solid var(--rule); transition: background 0.1s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: #FAFAF8; }
+        td { padding: 14px 16px; color: var(--ink-2); vertical-align: middle; }
+        td:first-child { padding-left: 28px; }
+        td:last-child { padding-right: 28px; text-align: right; }
+        .id-cell { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-3); }
+        .name-cell { font-weight: 500; color: var(--ink); font-size: 14px; }
+        .grade-cell { display: flex; align-items: center; gap: 10px; }
+        .grade-num { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--ink); min-width: 44px; }
+        .grade-bar-wrap { width: 60px; height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+        .grade-bar { height: 100%; border-radius: 2px; }
+        .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 6px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+        .badge-pass { background: var(--pass-bg); color: var(--pass-text); }
+        .badge-fail { background: var(--fail-bg); color: var(--fail-text); }
+        .section-pill { background: var(--bg); color: var(--ink-2); padding: 4px 10px; border-radius: 6px; font-size: 12px; border: 1px solid var(--rule); }
+        .action-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; text-decoration: none; transition: all 0.15s; border: none; cursor: pointer; background: transparent; }
+        .action-btn:hover { background: var(--bg); }
+        .action-btn.edit { color: var(--accent); }
+        .action-btn.del { color: var(--fail-text); }
+        .action-btn.del:hover { background: var(--fail-bg); }
+        .actions-wrap { display: inline-flex; gap: 2px; align-items: center; }
+        .empty-state { padding: 60px 28px; text-align: center; }
+        .empty-dash { font-family: 'DM Serif Display', serif; font-size: 48px; color: var(--rule-dark); margin-bottom: 10px; }
+        .empty-text { color: var(--ink-3); font-size: 13px; }
+        .page-footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; }
+        .footer-text { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-3); }
+        .api-tag { background: var(--accent-light); color: var(--accent); padding: 3px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 10px; }
+        </style>
+    </head>
+    <body>
+    <div class="shell">
+        <aside>
+            <div class="logo-block">
+                <div class="logo-sup">Academic Registry</div>
+                <div class="logo-title">Student<br><em>Portal</em></div>
+            </div>
+            <nav>
+                <div class="nav-label">Management</div>
+                <a class="nav-item active" href="/students">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    All Students
+                </a>
+                <a class="nav-item" href="/add_student_form">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    Add Student
+                </a>
+                <div class="nav-label nav-sep">API Endpoints</div>
+                <a class="nav-item" href="/api/students">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    /api/students
+                </a>
+                <a class="nav-item" href="/api/summary">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    /api/summary
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="version-tag">v1.0 · Flask + PostgreSQL</div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="page-header">
+                <div>
+                    <h1>Student <em>Roster</em></h1>
+                    <div class="page-sub">Manage records, track grades, and monitor class performance.</div>
                 </div>
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Class Average</p>
-                        <h3 class="text-3xl font-extrabold text-slate-800">{{ "%.1f"|format(avg) }}</h3>
-                    </div>
-                    <div class="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 text-xl">📈</div>
+                <a href="/add_student_form" class="btn-primary">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Student
+                </a>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card c-blue">
+                    <div class="stat-label">Total Students</div>
+                    <div class="stat-value">{{students|length}}</div>
                 </div>
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Passed</p>
-                        <h3 class="text-3xl font-extrabold text-emerald-600">{{passed}}</h3>
-                    </div>
-                    <div class="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 text-xl">🎉</div>
+                <div class="stat-card c-purple">
+                    <div class="stat-label">Class Average</div>
+                    <div class="stat-value">{{ "%.1f"|format(avg) }}</div>
                 </div>
-                <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Failed</p>
-                        <h3 class="text-3xl font-extrabold text-rose-600">{{failed}}</h3>
-                    </div>
-                    <div class="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-600 text-xl">⚠️</div>
+                <div class="stat-card c-green">
+                    <div class="stat-label">Passed</div>
+                    <div class="stat-value">{{passed}}</div>
+                </div>
+                <div class="stat-card c-red">
+                    <div class="stat-label">Failed</div>
+                    <div class="stat-value">{{failed}}</div>
                 </div>
             </div>
 
-            <!-- Table Section -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-6 border-b border-slate-100 bg-slate-50/50">
-                    <h2 class="text-lg font-semibold text-slate-800">Student Roster</h2>
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title">All Records</div>
+                    <div class="record-count">{{students|length}} entries</div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wider">
-                                <th class="p-4 pl-6 font-semibold">ID</th>
-                                <th class="p-4 font-semibold">Student Name</th>
-                                <th class="p-4 font-semibold">Grade</th>
-                                <th class="p-4 font-semibold">Section</th>
-                                <th class="p-4 pr-6 font-semibold text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 text-slate-700">
-                            {% for s in students %}
-                            <tr class="hover:bg-slate-50/80 transition-colors">
-                                <td class="p-4 pl-6 text-slate-400 font-medium">#{{s.id}}</td>
-                                <td class="p-4 font-semibold text-slate-900">{{s.name}}</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <span class="font-bold text-slate-800">{{ "%.2f"|format(s.grade) }}</span>
-                                        {% if s.grade >= 75 %}
-                                            <span class="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">PASS</span>
-                                        {% else %}
-                                            <span class="px-2.5 py-1 text-xs font-bold rounded-md bg-rose-100 text-rose-700 border border-rose-200 shadow-sm">FAIL</span>
-                                        {% endif %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Grade</th>
+                            <th>Status</th>
+                            <th>Section</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in students %}
+                        <tr>
+                            <td><span class="id-cell">#{{ '%03d' % s.id }}</span></td>
+                            <td><span class="name-cell">{{s.name}}</span></td>
+                            <td>
+                                <div class="grade-cell">
+                                    <span class="grade-num">{{ "%.2f"|format(s.grade) }}</span>
+                                    <div class="grade-bar-wrap">
+                                        <div class="grade-bar" style="width:{{ s.grade }}%; background:{% if s.grade >= 75 %}#16A34A{% elif s.grade >= 50 %}#D97706{% else %}#DC2626{% endif %};"></div>
                                     </div>
-                                </td>
-                                <td class="p-4 text-slate-600">{{s.section}}</td>
-                                <td class="p-4 pr-6 text-right space-x-1">
-                                    <a href="/edit_student/{{s.id}}" class="inline-flex items-center justify-center p-2 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </div>
+                            </td>
+                            <td>
+                                {% if s.grade >= 75 %}
+                                    <span class="badge badge-pass">Pass</span>
+                                {% else %}
+                                    <span class="badge badge-fail">Fail</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="section-pill">{{s.section}}</span></td>
+                            <td>
+                                <div class="actions-wrap">
+                                    <a href="/edit_student/{{s.id}}" class="action-btn edit" title="Edit">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/><path d="M17.5 2.5a2.121 2.121 0 013 3L12 14l-4 1 1-4 7.5-7.5z"/></svg>
                                     </a>
-                                    <form action="/delete_student/{{s.id}}" method="POST" class="inline-block m-0">
-                                        <button type="submit" onclick="return confirm('Are you sure you want to delete {{s.name}}?')" class="inline-flex items-center justify-center p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    <form action="/delete_student/{{s.id}}" method="POST" style="display:inline;margin:0">
+                                        <button type="submit" class="action-btn del" title="Delete" onclick="return confirm('Delete {{s.name}}?')">
+                                            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                                         </button>
                                     </form>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="p-12 text-center text-slate-500">
-                                    <div class="flex flex-col items-center justify-center">
-                                        <div class="text-5xl mb-4">📭</div>
-                                        <p class="text-xl font-semibold text-slate-700">No students found.</p>
-                                        <p class="text-sm mt-2 text-slate-400">Click 'Add New Student' to populate the dashboard.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="empty-dash">—</div>
+                                    <div class="empty-text">No students yet. Add one to get started.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            
-            <div class="mt-8 text-center text-slate-400 text-sm font-medium">
-                <p>Student Management API &bull; Powered by Flask & Render PostgreSQL</p>
+
+            <div class="page-footer">
+                <div class="footer-text">Student Management System · Flask + PostgreSQL</div>
+                <span class="api-tag">REST API active</span>
             </div>
-        </div>
+        </main>
+    </div>
     </body>
     </html>
     """
     return render_template_string(html, students=students, avg=avg, passed=passed, failed=failed)
+
 
 @app.route('/add_student_form')
 def add_student_form():
@@ -168,46 +298,69 @@ def add_student_form():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Add Student</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <style> body { font-family: 'Inter', sans-serif; } </style>
+        """ + SHARED_HEAD + """
+        <style>
+        body { display: grid; place-items: center; padding: 24px; }
+        .card { background: var(--surface-raised); border: 1px solid var(--rule); border-radius: 20px; width: 100%; max-width: 440px; overflow: hidden; }
+        .card-top { background: var(--ink); padding: 28px 32px; }
+        .back-link { display: inline-flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.4); font-size: 12px; text-decoration: none; margin-bottom: 16px; transition: color 0.15s; }
+        .back-link:hover { color: rgba(255,255,255,0.75); }
+        .card-top h1 { font-family: 'DM Serif Display', serif; font-size: 26px; color: #FDFCF9; line-height: 1.15; }
+        .card-top h1 em { font-style: italic; color: #A8B8F0; }
+        .card-top p { color: rgba(255,255,255,0.38); font-size: 12px; margin-top: 5px; }
+        .card-body { padding: 28px 32px 32px; }
+        .field { margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 11px 14px; border: 1.5px solid var(--rule); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); background: #FAFAF8; outline: none; transition: all 0.15s; appearance: none; }
+        input:focus { border-color: var(--accent); background: var(--surface-raised); box-shadow: 0 0 0 3px rgba(43,92,230,0.1); }
+        input::placeholder { color: #C8C0B4; }
+        .grade-hint { display: flex; justify-content: space-between; margin-top: 6px; }
+        .grade-hint span { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-3); }
+        .divider { height: 1px; background: var(--rule); margin: 8px 0 24px; }
+        .btn-submit { width: 100%; padding: 13px; background: var(--ink); color: #FDFCF9; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .btn-submit:hover { background: #2d2927; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+        </style>
     </head>
-    <body class="bg-slate-50 text-slate-800 min-h-screen p-4 flex items-center justify-center">
-        <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-            <div class="flex items-center gap-3 mb-8">
-                <a href="/students" class="text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 p-2 rounded-full">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+    <body>
+        <div class="card">
+            <div class="card-top">
+                <a href="/students" class="back-link">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back to roster
                 </a>
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Add New Student</h2>
+                <h1>Add <em>New</em><br>Student</h1>
+                <p>Fill in the fields below to register a student.</p>
             </div>
-            
-            <form action="/add_student" method="POST" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name</label>
-                    <input type="text" name="name" required autofocus class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all placeholder-slate-400 bg-slate-50 focus:bg-white" placeholder="e.g. Juan Dela Cruz">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Grade (0-100)</label>
-                    <input type="number" step="0.01" name="grade" min="0" max="100" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all placeholder-slate-400 bg-slate-50 focus:bg-white" placeholder="e.g. 85.50">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Section</label>
-                    <input type="text" name="section" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all placeholder-slate-400 bg-slate-50 focus:bg-white" placeholder="e.g. Zechariah">
-                </div>
-                <div class="pt-4">
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Save Student Record
-                    </button>
-                </div>
-            </form>
+            <div class="card-body">
+                <form action="/add_student" method="POST">
+                    <div class="field">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" required autofocus placeholder="e.g. Juan Dela Cruz">
+                    </div>
+                    <div class="field">
+                        <label for="grade">Grade</label>
+                        <input type="number" id="grade" name="grade" step="0.01" min="0" max="100" required placeholder="0.00 – 100.00">
+                        <div class="grade-hint">
+                            <span>Min: 0</span>
+                            <span>Pass threshold: 75</span>
+                            <span>Max: 100</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="section">Section</label>
+                        <input type="text" id="section" name="section" required placeholder="e.g. Zechariah">
+                    </div>
+                    <div class="divider"></div>
+                    <button type="submit" class="btn-submit">Save Student Record</button>
+                </form>
+            </div>
         </div>
     </body>
     </html>
     """
     return render_template_string(html)
+
 
 @app.route('/edit_student/<int:id>', methods=['GET', 'POST'])
 def edit_student(id):
@@ -248,49 +401,74 @@ def edit_student(id):
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Edit Student</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <style> body { font-family: 'Inter', sans-serif; } </style>
+        """ + SHARED_HEAD + """
+        <style>
+        body { display: grid; place-items: center; padding: 24px; }
+        .card { background: var(--surface-raised); border: 1px solid var(--rule); border-radius: 20px; width: 100%; max-width: 440px; overflow: hidden; }
+        .card-top { background: #2A3550; padding: 28px 32px; }
+        .back-link { display: inline-flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.38); font-size: 12px; text-decoration: none; margin-bottom: 16px; transition: color 0.15s; }
+        .back-link:hover { color: rgba(255,255,255,0.7); }
+        .card-top h1 { font-family: 'DM Serif Display', serif; font-size: 26px; color: #FDFCF9; line-height: 1.15; }
+        .card-top h1 em { font-style: italic; color: #F9C74F; }
+        .id-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 10px; border-radius: 6px; margin-top: 8px; }
+        .card-body { padding: 28px 32px 32px; }
+        .field { margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 11px 14px; border: 1.5px solid var(--rule); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); background: #FAFAF8; outline: none; transition: all 0.15s; appearance: none; }
+        input:focus { border-color: var(--accent); background: var(--surface-raised); box-shadow: 0 0 0 3px rgba(43,92,230,0.1); }
+        .grade-hint { display: flex; justify-content: space-between; margin-top: 6px; }
+        .grade-hint span { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-3); }
+        .divider { height: 1px; background: var(--rule); margin: 8px 0 24px; }
+        .btn-submit { width: 100%; padding: 13px; background: #2A3550; color: #FDFCF9; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .btn-submit:hover { background: #1e2840; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(42,53,80,0.28); }
+        </style>
     </head>
-    <body class="bg-slate-50 text-slate-800 min-h-screen p-4 flex items-center justify-center">
-        <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-            <div class="flex items-center gap-3 mb-8">
-                <a href="/students" class="text-slate-400 hover:text-indigo-600 transition-colors bg-slate-50 p-2 rounded-full">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+    <body>
+        <div class="card">
+            <div class="card-top">
+                <a href="/students" class="back-link">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                    Back to roster
                 </a>
-                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Edit Student</h2>
+                <h1>Edit <em>Student</em><br>Record</h1>
+                <div class="id-badge">
+                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    ID #{{ '%03d' % student.id }}
+                </div>
             </div>
-            
-            <form method="POST" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name</label>
-                    <input type="text" name="name" value="{{student['name']}}" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all bg-slate-50 focus:bg-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Grade (0-100)</label>
-                    <input type="number" step="0.01" name="grade" value="{{student['grade']}}" min="0" max="100" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all bg-slate-50 focus:bg-white">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Section</label>
-                    <input type="text" name="section" value="{{student['section']}}" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all bg-slate-50 focus:bg-white">
-                </div>
-                <div class="pt-4">
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Update Student Record
-                    </button>
-                </div>
-            </form>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="field">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" value="{{student['name']}}" required>
+                    </div>
+                    <div class="field">
+                        <label for="grade">Grade</label>
+                        <input type="number" id="grade" name="grade" value="{{student['grade']}}" step="0.01" min="0" max="100" required>
+                        <div class="grade-hint">
+                            <span>Min: 0</span>
+                            <span>Pass threshold: 75</span>
+                            <span>Max: 100</span>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="section">Section</label>
+                        <input type="text" id="section" name="section" value="{{student['section']}}" required>
+                    </div>
+                    <div class="divider"></div>
+                    <button type="submit" class="btn-submit">Update Student Record</button>
+                </form>
+            </div>
         </div>
     </body>
     </html>
     """
     return render_template_string(html, student=student)
 
+
 # ==========================================
-# 3. CORE API ENDPOINTS (CRUD & Analytics)
+# CORE API ENDPOINTS (CRUD & Analytics)
 # ==========================================
 
 @app.route('/add_student', methods=['POST'])
@@ -317,8 +495,9 @@ def add_student():
         conn.commit()
         cursor.close()
         conn.close()
-    
+
     return redirect(url_for('list_students'))
+
 
 @app.route('/delete_student/<int:id>', methods=['POST'])
 def delete_student(id):
@@ -331,6 +510,7 @@ def delete_student(id):
         conn.close()
     return redirect(url_for('list_students'))
 
+
 @app.route('/api/students', methods=['GET'])
 def api_get_students():
     conn = get_db_connection()
@@ -340,12 +520,11 @@ def api_get_students():
         students = cursor.fetchall()
         cursor.close()
         conn.close()
-        
-        # Convert Decimal to float for JSON output
         for s in students:
             s['grade'] = float(s['grade'])
         return jsonify(students)
     return jsonify({"error": "DB Connection Error"}), 500
+
 
 @app.route('/api/student/<int:id>', methods=['GET'])
 def api_get_student(id):
@@ -356,11 +535,11 @@ def api_get_student(id):
         student = cursor.fetchone()
         cursor.close()
         conn.close()
-
         if student:
             student['grade'] = float(student['grade'])
             return jsonify(student)
     return jsonify({"error": "Student not found"}), 404
+
 
 @app.route('/api/summary', methods=['GET'])
 def api_summary():
@@ -371,16 +550,15 @@ def api_summary():
         rows = cursor.fetchall()
         cursor.close()
         conn.close()
-
         if not rows:
-             return jsonify({"average": 0, "passed": 0, "failed": 0})
-        
+            return jsonify({"average": 0, "passed": 0, "failed": 0})
         grades = [float(r['grade']) for r in rows]
         passed = len([g for g in grades if g >= 75])
         failed = len(grades) - passed
         avg = sum(grades) / len(grades)
         return jsonify({"average": avg, "passed": passed, "failed": failed})
     return jsonify({"error": "DB Connection Error"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
